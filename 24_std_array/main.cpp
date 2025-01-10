@@ -1,4 +1,4 @@
-﻿#include "../exercise.h"
+#include "../exercise.h"
 #include <array>
 #include <cstring>
 
@@ -9,14 +9,14 @@ int main(int argc, char **argv) {
     {
         std::array<int, 5> arr{{1, 2, 3, 4, 5}};
         ASSERT(arr.size() == 5, "Fill in the correct value.");
-        ASSERT(sizeof(arr) == 20, "Fill in the correct value."); // 假设 sizeof(int) == 4
+        ASSERT(sizeof(arr) == 20, "Fill in the correct value.");
         int ans[]{1, 2, 3, 4, 5};
-        ASSERT(std::memcmp(arr.data(), ans, sizeof(arr)) == 0, "Fill in the correct values.");
+        ASSERT(std::memcmp(arr.data(), ans, sizeof(ans)) == 0, "Fill in the correct values.");
     }
     {
         std::array<double, 8> arr;
         ASSERT(arr.size() == 8, "Fill in the correct value.");
-        ASSERT(sizeof(arr) == 64, "Fill in the correct value."); // 假设 sizeof(double) == 8
+        ASSERT(sizeof(arr) == 64, "Fill in the correct value.");
     }
     {
         std::array<char, 21> arr{"Hello, InfiniTensor!"};

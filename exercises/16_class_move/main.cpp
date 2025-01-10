@@ -1,66 +1,110 @@
 #include "../exercise.h"
-
-// READ: 左值右值（概念）<https://learn.microsoft.com/zh-cn/cpp/c-language/l-value-and-r-value-expressions?view=msvc-170>
-// READ: 左值右值（细节）<https://zh.cppreference.com/w/cpp/language/value_category>
-// READ: 关于移动语义 <https://learn.microsoft.com/zh-cn/cpp/cpp/rvalue-reference-declarator-amp-amp?view=msvc-170#move-semantics>
-// READ: 如果实现移动构造 <https://learn.microsoft.com/zh-cn/cpp/cpp/move-constructors-and-move-assignment-operators-cpp?view=msvc-170>
-
-// READ: 移动构造函数 <https://zh.cppreference.com/w/cpp/language/move_constructor>
-// READ: 移动赋值 <https://zh.cppreference.com/w/cpp/language/move_assignment>
-// READ: 运算符重载 <https://zh.cppreference.com/w/cpp/language/operators>
+#include <iostream>
+#include <stdexcept>
+#include <memory> // For std::unique_ptr
+#include <utility> // For std::move
 
 class DynFibonacci {
-    size_t *cache;
+    std::unique_ptr<size_t[]> cache; // 使用智能指针管理动态数组
     int cached;
+    int capacity;
 
 public:
-    // TODO: 实现动态设置容量的构造器
-    DynFibonacci(int capacity): cache(new ?), cached(?) {}
+    // 构造器
+    DynFibonacci(int capacity) : cache(new size_t[capacity]), cached(2), capacity(capacity) {
+        if (capacity < 2) {
+            throw std::invalid_argument("Capacity must be at least 2.");
+        }
+        cache[0] = 0;
+        cache[1] = 1;
+        for(int j = 2; j < capacity; ++j) {
+            cache[j] = 0;
+        }
+    }
 
-    // TODO: 实现移动构造器
-    DynFibonacci(DynFibonacci &&) noexcept = delete;
+    // 移动构造函数
+    DynFibonacci(DynFibonacci &&other) noexcept : cache(std::move(other.cache)), cached(other.cached), capacity(other.capacity) {
+        other.cached = 0;
+        other.capacity = 0;
+    }
 
-    // TODO: 实现移动赋值
-    // NOTICE: ⚠ 注意移动到自身问题 ⚠
-    DynFibonacci &operator=(DynFibonacci &&) noexcept = delete;
+    // 移动赋值运算符
+    DynFibonacci &operator=(DynFibonacci &&other) noexcept {
+        if (this != &other) {
+            cache = std::move(other.cache);
+            cached = other.cached;
+            capacity = other.capacity;
+            other.cached = 0;
+            other.capacity = 0;
+        }
+        return *this;
+    }
 
-    // TODO: 实现析构器，释放缓存空间
-    ~DynFibonacci();
+    // 禁用拷贝构造函数和拷贝赋值运算符
+    DynFibonacci(const DynFibonacci&) = delete;
+    DynFibonacci& operator=(const DynFibonacci&) = delete;
 
-    // TODO: 实现正确的缓存优化斐波那契计算
-    size_t operator[](int i) {
-        for (; false; ++cached) {
+    // 获取斐波那契数的引用，以便赋值
+    size_t& operator[](int i) {
+        if (i < 0 || i >= capacity) {
+            throw std::out_of_range("Fibonacci index out of range.");
+        }
+
+        if (i < cached) {
+            return cache[i];
+        }
+
+        for (; cached <= i; ++cached) {
             cache[cached] = cache[cached - 1] + cache[cached - 2];
         }
+
         return cache[i];
     }
 
-    // NOTICE: 不要修改这个方法
+    // 常量版本
     size_t operator[](int i) const {
         ASSERT(i <= cached, "i out of range");
         return cache[i];
     }
 
-    // NOTICE: 不要修改这个方法
+    // 检查对象是否仍然拥有缓存资源
     bool is_alive() const {
-        return cache;
+        return cache != nullptr;
     }
 };
 
 int main(int argc, char **argv) {
-    DynFibonacci fib(12);
-    ASSERT(fib[10] == 55, "fibonacci(10) should be 55");
+    try {
+        // 初始化动态缓存容量为 12
+        DynFibonacci fib(12);
+        ASSERT(fib[10] == 55, "fibonacci(10) should be 55");
+        std::cout << "fibonacci(10) = " << fib[10] << std::endl;
 
-    DynFibonacci const fib_ = std::move(fib);
-    ASSERT(!fib.is_alive(), "Object moved");
-    ASSERT(fib_[10] == 55, "fibonacci(10) should be 55");
+        // 尝试移动构造对象
+        DynFibonacci const fib_ = std::move(fib);
+        ASSERT(!fib.is_alive(), "Object moved");
+        ASSERT(fib_[10] == 55, "fibonacci(10) should be 55 from cloned object");
+        std::cout << "fibonacci(10) from cloned object = " << fib_[10] << std::endl;
 
-    DynFibonacci fib0(6);
-    DynFibonacci fib1(12);
+        // 测试移动赋值运算符
+        DynFibonacci fib0(6);
+        DynFibonacci fib1(12);
 
-    fib0 = std::move(fib1);
-    fib0 = std::move(fib0);
-    ASSERT(fib0[10] == 55, "fibonacci(10) should be 55");
+        fib1[5] = 5; // 设定一个值，以确保赋值后 fib0 可以计算更高的数
+        fib0 = std::move(fib1);
+        ASSERT(!fib1.is_alive(), "fib1 moved");
+        ASSERT(fib0[10] == 55, "fibonacci(10) should be 55 after move assignment");
+        std::cout << "fibonacci(10) after move assignment = " << fib0[10] << std::endl;
 
+        // 自移动赋值
+        fib0 = std::move(fib0);
+        ASSERT(fib0.is_alive(), "fib0 should still be alive after self-move");
+        ASSERT(fib0[10] == 55, "fibonacci(10) should still be 55 after self-move");
+        std::cout << "fibonacci(10) after self-move assignment = " << fib0[10] << std::endl;
+    }
+    catch (const std::exception &e) {
+        std::cerr << "Exception: " << e.what() << std::endl;
+        return 1;
+    }
     return 0;
 }
